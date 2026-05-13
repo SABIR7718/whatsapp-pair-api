@@ -36,7 +36,6 @@ const {
     makeCacheableSignalKeyStore,
     fetchLatestBaileysVersion,
     DisconnectReason,
-    Browsers
 } = require("@whiskeysockets/baileys");
 
 const fs = require('fs');
@@ -48,10 +47,12 @@ const { log } = require('@sabir7718/log');
 
 const SABIR7718_APP = SABIR7718_Aokl();
 SABIR7718_APP.use(cors());
+
+process.on('uncaughtException', (err) => log('error', 'CRITICAL', err.message));
+process.on('unhandledRejection', (reason) => log('error', 'CRITICAL', reason));
+
 const PORT = process.env.PORT || 3000;
-
 const S7HaTeSY = (size) => crypto.randomBytes(size).toString('hex');
-
 const FIREBASE_URL = process.env.FIREBASE_URL?.trim();
 
 if (!FIREBASE_URL) {
@@ -84,26 +85,24 @@ SABIR7718_APP.get('/pair', async (req, res) => {
             browser: ["Ubuntu", "Chrome", "20.0.04"]
         });
 
-        if (!SY.authState.creds.registered) {
+        if (!SY.authState.creds.registered && !res.headersSent) {
             await delay(1500);
             try {
-                let HaTe = await SY.requestPairingCode(S7, "12345678");
+                let HaTe = await SY.requestPairingCode(S7);
                 HaTe = HaTe?.match(/.{1,4}/g)?.join('-') || HaTe;
 
                 log('info', 'SYSTEM', `PAIR GENERATED FOR ${S7}`);
 
-                if (!res.headersSent) {
-                    res.json({
-                        status: true,
-                        creator: 'SABIR7718',
-                        number: S7,
-                        code: HaTe,
-                        session_id: SABIR7718_ID
-                    });
-                }
+                res.json({
+                    status: true,
+                    creator: 'SABIR7718',
+                    number: S7,
+                    code: HaTe,
+                    session_id: SABIR7718_ID
+                });
             } catch (err) {
-                log('error', 'SYSTEM', "Pairing Code Error: " + err.message);
-                if (!res.headersSent) res.status(500).json({ status: false, message: 'Failed to generate code' });
+                log('error', 'SYSTEM', err.message);
+                if (!res.headersSent) res.status(500).json({ status: false, message: 'Failed' });
             }
         }
 
@@ -112,53 +111,49 @@ SABIR7718_APP.get('/pair', async (req, res) => {
         SY.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
 
-                        if (connection === 'open') {
+            if (connection === 'open') {
                 try {
-                    log('success', 'SYSTEM', `${S7} connected!`);
-                    await delay(2000);
+                    log('success', 'SYSTEM', `Connected successfully!`);
+                    await delay(5000);
 
                     const SYHaTeS7 = path.join(S7HaTe_Path, 'creds.json');
                     if (fs.existsSync(SYHaTeS7)) {
                         const HaTeSY = fs.readFileSync(SYHaTeS7, 'utf-8');
                         const SABIR = Buffer.from(HaTeSY).toString('base64');
-                        const S7SY = `${process.env.FIREBASE_URL}${SABIR7718_ID}.json`;
-
-                        await axios.put(S7SY, JSON.stringify(SABIR), {
-                            headers: { 'Content-Type': 'application/json' }
-                        });
+                        
+                        const finalFB = FIREBASE_URL.endsWith('/') ? FIREBASE_URL : `${FIREBASE_URL}/`;
+                        await axios.put(`${finalFB}${SABIR7718_ID}.json`, JSON.stringify(SABIR));
 
                         log('success', 'SYSTEM', `UPLOADED TO FIREBASE`);
                         
                         const S7_myJid = SY.user.id.split(':')[0] + '@s.whatsapp.net';
                         await SY.sendMessage(S7_myJid, { text: `*SESSION CONNECTED*\n\nID: \`${SABIR7718_ID}\`` });
 
-                        await delay(3000);
+                        await delay(2000);
                         
-                        SY.end(); 
+                        SY.ev.removeAllListeners('creds.update');
+                        SY.ev.removeAllListeners('connection.update');
+                        SY.end();
                         
-                        log('info', 'SYSTEM', 'Socket closed safely. Session is alive on WhatsApp.');
+                        S7 = null; 
                     }
                 } catch (e) {
-                    log('error', 'SYSTEM', 'Upload Error: ' + e.message);
+                    log('error', 'SYSTEM', e.message);
                 } finally {
                     setTimeout(() => {
                         if (fs.existsSync(S7HaTe_Path)) {
                             fs.rmSync(S7HaTe_Path, { recursive: true, force: true });
-                            log('info', 'SYSTEM', 'Temporary folder cleaned up.');
+                            log('info', 'SYSTEM', 'Cleanup Done.');
                         }
-                    }, 5000);
+                    }, 3000);
                 }
             }
 
-
             if (connection === 'close') {
                 const reason = lastDisconnect?.error?.output?.statusCode;
-                
-                if (reason !== DisconnectReason.loggedOut) {
-                    log('warn', 'SYSTEM', `Connection closed (Reason: ${reason}). Reconnecting...`);
-                    startSY();
+                if (reason !== DisconnectReason.loggedOut && connection !== 'open' && S7) {
+                    setTimeout(() => startSY(), 3000);
                 } else {
-                    log('error', 'SYSTEM', `Session Logged Out. Cleaning up...`);
                     if (fs.existsSync(S7HaTe_Path)) {
                         fs.rmSync(S7HaTe_Path, { recursive: true, force: true });
                     }
