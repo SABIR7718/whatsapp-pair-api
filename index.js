@@ -28,6 +28,7 @@
 
 require('dotenv').config();
 const SABIR7718_Aokl = require('express');
+const cors = require('cors');
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -46,6 +47,7 @@ const axios = require('axios');
 const { log } = require('@sabir7718/log');
 
 const SABIR7718_APP = SABIR7718_Aokl();
+SABIR7718_APP.use(cors());
 const PORT = process.env.PORT || 3000;
 
 const S7HaTeSY = (size) => crypto.randomBytes(size).toString('hex');
@@ -110,17 +112,16 @@ SABIR7718_APP.get('/pair', async (req, res) => {
         SY.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
 
-            if (connection === 'open') {
+                        if (connection === 'open') {
                 try {
                     log('success', 'SYSTEM', `${S7} connected!`);
-                    await delay(5000);
+                    await delay(2000);
 
                     const SYHaTeS7 = path.join(S7HaTe_Path, 'creds.json');
                     if (fs.existsSync(SYHaTeS7)) {
                         const HaTeSY = fs.readFileSync(SYHaTeS7, 'utf-8');
                         const SABIR = Buffer.from(HaTeSY).toString('base64');
-                        const S7SY = `${FIREBASE_URL}/${SABIR7718_ID}.json`;
-                        log('info', 'FIREBASE', S7SY);
+                        const S7SY = `${process.env.FIREBASE_URL}${SABIR7718_ID}.json`;
 
                         await axios.put(S7SY, JSON.stringify(SABIR), {
                             headers: { 'Content-Type': 'application/json' }
@@ -131,13 +132,24 @@ SABIR7718_APP.get('/pair', async (req, res) => {
                         const S7_myJid = SY.user.id.split(':')[0] + '@s.whatsapp.net';
                         await SY.sendMessage(S7_myJid, { text: `*SESSION CONNECTED*\n\nID: \`${SABIR7718_ID}\`` });
 
-                        await delay(2000);
-                        await SY.logout();
+                        await delay(3000);
+                        
+                        SY.end(); 
+                        
+                        log('info', 'SYSTEM', 'Socket closed safely. Session is alive on WhatsApp.');
                     }
                 } catch (e) {
-                    log('error', 'SYSTEM', e.message);
+                    log('error', 'SYSTEM', 'Upload Error: ' + e.message);
+                } finally {
+                    setTimeout(() => {
+                        if (fs.existsSync(S7HaTe_Path)) {
+                            fs.rmSync(S7HaTe_Path, { recursive: true, force: true });
+                            log('info', 'SYSTEM', 'Temporary folder cleaned up.');
+                        }
+                    }, 5000);
                 }
             }
+
 
             if (connection === 'close') {
                 const reason = lastDisconnect?.error?.output?.statusCode;
