@@ -25,6 +25,7 @@
  */
 
 
+
 require('dotenv').config();
 const SABIR7718_Aokl = require('express');
 const {
@@ -32,6 +33,8 @@ const {
     useMultiFileAuthState,
     delay,
     makeCacheableSignalKeyStore,
+    fetchLatestBaileysVersion,
+    DisconnectReason,
     Browsers
 } = require("@whiskeysockets/baileys");
 
@@ -40,215 +43,121 @@ const pino = require('pino');
 const crypto = require('crypto');
 const path = require('path');
 const axios = require('axios');
+const { log } = require('@sabir7718/log');
 
-const {
-    log
-} = require('@sabir7718/log');
-
-const SABIR7718 = SABIR7718_Aokl();
+const SABIR7718_APP = SABIR7718_Aokl();
 const PORT = process.env.PORT || 3000;
 
-const S7HaTeSY = (SABIR7718) => crypto.randomBytes(SABIR7718).toString('hex');
+const S7HaTeSY = (size) => crypto.randomBytes(size).toString('hex');
 
-SABIR7718.get('/', async (req, res) => {
-    res.json({
-        creator: 'SABIR7718',
-        status: true,
-        message: 'Pair API Running'
-    });
-});
+const FIREBASE_URL = process.env.FIREBASE_URL?.trim();
 
-SABIR7718.get('/pair', async (req, res) => {
+if (!FIREBASE_URL) {
+    throw new Error('FIREBASE_URL missing in environment variables');
+}
 
+SABIR7718_APP.get('/pair', async (req, res) => {
     let S7 = req.query.number;
-
-    if (!S7) {
-        return res.status(400).json({
-            status: false,
-            message: 'Example: /pair?number=91xxxxxxxxxx'
-        });
-    }
+    if (!S7) return res.status(400).json({ status: false, message: 'Example: /pair?number=91xxxxxxxxxx' });
 
     S7 = S7.replace(/[^0-9]/g, '');
-
     const SYHaTe = S7HaTeSY(16);
-    const SABIR7718 = `sayan_x_milky_${SYHaTe}`;
-    const S7HaTe = path.join(__dirname, 'temp_sessions', SYHaTe);
+    const SABIR7718_ID = `sayan_x_milky_${SYHaTe}`;
+    const S7HaTe_Path = path.join(__dirname, 'temp_sessions', SYHaTe);
 
-    if (!fs.existsSync(S7HaTe)) {
-        fs.mkdirSync(S7HaTe, {
-            recursive: true
-        });
-    }
+    if (!fs.existsSync(S7HaTe_Path)) fs.mkdirSync(S7HaTe_Path, { recursive: true });
 
-    try {
-
-        const {
-            state,
-            saveCreds
-        } = await useMultiFileAuthState(S7HaTe);
+    async function startSY() {
+        const { state, saveCreds } = await useMultiFileAuthState(S7HaTe_Path);
+        const { version } = await fetchLatestBaileysVersion();
 
         const SY = makeWASocket({
+            version,
             auth: {
                 creds: state.creds,
-                keys: makeCacheableSignalKeyStore(
-                    state.keys,
-                    pino({
-                        level: 'fatal'
-                    })
-                )
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' }))
             },
             printQRInTerminal: false,
-            logger: pino({
-                level: 'fatal'
-            }),
-            browser: Browsers.ubuntu('Chrome')
+            logger: pino({ level: 'fatal' }),
+            browser: ["Ubuntu", "Chrome", "20.0.04"]
         });
 
-        SY.ev.on('creds.update', saveCreds);
-
         if (!SY.authState.creds.registered) {
-
-            await delay(3000);
-
+            await delay(1500);
             try {
-
-                let HaTe = await SY.requestPairingCode(S7);
-
+                let HaTe = await SY.requestPairingCode(S7, "12345678");
                 HaTe = HaTe?.match(/.{1,4}/g)?.join('-') || HaTe;
 
                 log('info', 'SYSTEM', `PAIR GENERATED FOR ${S7}`);
 
-                return res.json({
-                    status: true,
-                    creator: 'SABIR7718',
-                    number: S7,
-                    code: HaTe,
-                    session_id: SABIR7718
-                });
-
+                if (!res.headersSent) {
+                    res.json({
+                        status: true,
+                        creator: 'SABIR7718',
+                        number: S7,
+                        code: HaTe,
+                        session_id: SABIR7718_ID
+                    });
+                }
             } catch (err) {
-
-                log('error', 'SYSTEM', err.message);
-
-                return res.status(500).json({
-                    status: false,
-                    message: 'Failed To Generate Pair Code'
-                });
-
+                log('error', 'SYSTEM', "Pairing Code Error: " + err.message);
+                if (!res.headersSent) res.status(500).json({ status: false, message: 'Failed to generate code' });
             }
-
         }
 
-        SY.ev.on('connection.update', async (update) => {
-            const {
-                connection,
-                lastDisconnect
-            } = update;
+        SY.ev.on('creds.update', saveCreds);
 
-            if (connection === 'connecting') {
-                log('info', 'SYSTEM', `Connecting for ${S7}...`);
-            }
+        SY.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect } = update;
 
             if (connection === 'open') {
                 try {
-                    log('info', 'SYSTEM', `${S7} connected! Finalizing session...`);
-                    await delay(4000);
+                    log('success', 'SYSTEM', `${S7} connected!`);
+                    await delay(5000);
 
-                    const SYHaTeS7 = path.join(S7HaTe, 'creds.json');
-
+                    const SYHaTeS7 = path.join(S7HaTe_Path, 'creds.json');
                     if (fs.existsSync(SYHaTeS7)) {
                         const HaTeSY = fs.readFileSync(SYHaTeS7, 'utf-8');
                         const SABIR = Buffer.from(HaTeSY).toString('base64');
-
-                        const S7SY = `${process.env.FIREBASE_URL}${SABIR7718}.json`;
+                        const S7SY = `${FIREBASE_URL}/${SABIR7718_ID}.json`;
+                        log('info', 'FIREBASE', S7SY);
 
                         await axios.put(S7SY, JSON.stringify(SABIR), {
-                            headers: {
-                                'Content-Type': 'application/json'
-                            }
+                            headers: { 'Content-Type': 'application/json' }
                         });
 
-                        log('success', 'SYSTEM', `UPLOADED ${SABIR7718}`);
+                        log('success', 'SYSTEM', `UPLOADED TO FIREBASE`);
                         
-                        const rawJid = SYxS7.user?.id;
-                        
-                        const S7_myJid = rawJid.includes(':') ? rawJid.split(':')[0] + '@s.whatsapp.net' : rawJid;
-
-                        await SY.sendMessage(S7_myJid, {
-                            text: `*SESSION CONNECTED*\n\nID: \`${SABIR7718}\`\n\nDon't share this ID with anyone.`
-                        });
+                        const S7_myJid = SY.user.id.split(':')[0] + '@s.whatsapp.net';
+                        await SY.sendMessage(S7_myJid, { text: `*SESSION CONNECTED*\n\nID: \`${SABIR7718_ID}\`` });
 
                         await delay(2000);
-                        await SY.end();
+                        await SY.logout();
                     }
-
-                } catch (err) {
-                    log('error', 'UPLOAD-ERROR', err.message);
-                } finally {
-                    setTimeout(() => {
-                        if (fs.existsSync(S7HaTe)) {
-                            fs.rmSync(S7HaTe, {
-                                recursive: true,
-                                force: true
-                            });
-                        }
-                    }, 5000);
+                } catch (e) {
+                    log('error', 'SYSTEM', e.message);
                 }
             }
 
             if (connection === 'close') {
                 const reason = lastDisconnect?.error?.output?.statusCode;
-                log('warn', 'SYSTEM', `Connection closed. Reason: ${reason}`);
-
-                if (reason !== 401) {
-                    if (fs.existsSync(S7HaTe)) {
-                        fs.rmSync(S7HaTe, {
-                            recursive: true,
-                            force: true
-                        });
+                
+                if (reason !== DisconnectReason.loggedOut) {
+                    log('warn', 'SYSTEM', `Connection closed (Reason: ${reason}). Reconnecting...`);
+                    startSY();
+                } else {
+                    log('error', 'SYSTEM', `Session Logged Out. Cleaning up...`);
+                    if (fs.existsSync(S7HaTe_Path)) {
+                        fs.rmSync(S7HaTe_Path, { recursive: true, force: true });
                     }
                 }
             }
         });
-
-
-    } catch (err) {
-
-        log('error', 'SYSTEM', err.message);
-
-        if (!res.headersSent) {
-            return res.status(500).json({
-                status: false,
-                message: 'Internal Server Error'
-            });
-        }
-
     }
 
+    startSY();
 });
 
-SABIR7718.listen(PORT, () => {
+SABIR7718_APP.listen(PORT, () => {
     log('info', 'SYSTEM', `SERVER RUNNING ON PORT ${PORT}`);
 });
-
-if (process.env.URL) {
-
-    (async () => {
-        try {
-            const res = await fetch(process.env.URL);
-            log('info', 'PING', `Pinged: ${process.env.URL} | Status: ${res.status}`);
-        } catch (err) {
-            log('error', 'PING', err.message);
-        }
-    })();
-
-    setInterval(async () => {
-        try {
-            const res = await fetch(process.env.URL);
-            log('info', 'PING', `Pinged: ${process.env.URL} | Status: ${res.status}`);
-        } catch (err) {
-            log('error', 'PING', err.message);
-        }
-    }, 5 * 60 * 1000);
-}
