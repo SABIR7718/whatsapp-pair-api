@@ -41,7 +41,9 @@ const crypto = require('crypto');
 const path = require('path');
 const axios = require('axios');
 
-const { log } = require('@sabir7718/log');
+const {
+    log
+} = require('@sabir7718/log');
 
 const SABIR7718 = SABIR7718_Aokl();
 const PORT = process.env.PORT || 3000;
@@ -138,66 +140,78 @@ SABIR7718.get('/pair', async (req, res) => {
 
         }
 
-        SY.ev.on('connection.update', async (S7HaTeSY) => {
-
+        SY.ev.on('connection.update', async (update) => {
             const {
                 connection,
                 lastDisconnect
-            } = S7HaTeSY;
+            } = update;
+
+            if (connection === 'connecting') {
+                log('info', 'SYSTEM', `Connecting for ${S7}...`);
+            }
 
             if (connection === 'open') {
-
                 try {
-
-                    await delay(5000);
-
-                    log('info', 'SYSTEM', `${S7} CONNECTED`);
+                    log('info', 'SYSTEM', `${S7} connected! Finalizing session...`);
+                    await delay(4000);
 
                     const SYHaTeS7 = path.join(S7HaTe, 'creds.json');
 
-                    const HaTeSY = fs.readFileSync(SYHaTeS7, 'utf-8');
+                    if (fs.existsSync(SYHaTeS7)) {
+                        const HaTeSY = fs.readFileSync(SYHaTeS7, 'utf-8');
+                        const SABIR = Buffer.from(HaTeSY).toString('base64');
 
-                    const SABIR = Buffer.from(HaTeSY).toString('base64');
+                        const S7SY = `${process.env.FIREBASE_URL}${SABIR7718}.json`;
 
-                    const S7SY = `${process.env.FIREBASE_URL}${SABIR7718}.json`;
+                        await axios.put(S7SY, JSON.stringify(SABIR), {
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        });
 
-                    await axios.put(S7SY, JSON.stringify(SABIR), {
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
+                        log('success', 'SYSTEM', `UPLOADED ${SABIR7718}`);
+                        
+                        const rawJid = SYxS7.user?.id;
+                        
+                        const S7_myJid = rawJid.includes(':') ? rawJid.split(':')[0] + '@s.whatsapp.net' : rawJid;
 
-                    log('info', 'SYSTEM', `UPLOADED ${SABIR7718}`);
+                        await SY.sendMessage(S7_myJid, {
+                            text: `*SESSION CONNECTED*\n\nID: \`${SABIR7718}\`\n\nDon't share this ID with anyone.`
+                        });
 
-                    await SY.logout();
-
-                    fs.rmSync(S7HaTe, {
-                        recursive: true,
-                        force: true
-                    });
+                        await delay(2000);
+                        await SY.end();
+                    }
 
                 } catch (err) {
-
-                    log('error', 'SYSTEM', err.message);
-
+                    log('error', 'UPLOAD-ERROR', err.message);
+                } finally {
+                    setTimeout(() => {
+                        if (fs.existsSync(S7HaTe)) {
+                            fs.rmSync(S7HaTe, {
+                                recursive: true,
+                                force: true
+                            });
+                        }
+                    }, 5000);
                 }
-
             }
 
             if (connection === 'close') {
+                const reason = lastDisconnect?.error?.output?.statusCode;
+                log('warn', 'SYSTEM', `Connection closed. Reason: ${reason}`);
 
-                const SABIR7718S7 = lastDisconnect?.error?.output?.statusCode;
-
-                log('error', 'SYSTEM', `CONNECTION CLOSED ${SABIR7718S7 || ''}`);
-
-                fs.rmSync(S7HaTe, {
-                    recursive: true,
-                    force: true
-                });
-
+                if (reason !== 401) {
+                    if (fs.existsSync(S7HaTe)) {
+                        fs.rmSync(S7HaTe, {
+                            recursive: true,
+                            force: true
+                        });
+                    }
+                }
             }
-
         });
+
 
     } catch (err) {
 
