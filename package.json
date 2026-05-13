@@ -1,0 +1,40 @@
+{
+  "name": "whatsapp-pair-api",
+  "version": "1.0.0",
+  "description": "WhatsApp Pairing Code Generator API by SABIR7718",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@sabir7718/log": "^1.0.2",
+    "@whiskeysockets/baileys": "latest",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pino": "^9.3.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "author": "SABIR7718 (VOIDSEC)",
+  "license": "Proprietary",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SABIR7718/whatsapp-pair-api"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "pairing-code",
+    "multi-device",
+    "whatsapp-bot",
+    "sabir7718"
+  ]
+}
